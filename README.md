@@ -51,7 +51,7 @@ kubectl logs redis-5f8bc7f679-qk7cw
 1:M 10 Jul 15:32:07.877 * Ready to accept connections
 ```
 
-## MongoDB installation
+### MongoDB installation
 
 For the purposes of this installation, we will deploy a single mongodb server.
 
@@ -85,94 +85,84 @@ kubectl logs mongodb-68d66b5d69-r6cxq
 ...
 ```
 
-# Tyk setup
+## Tyk Dasboard
 
-Enter the `tyk` directory:
+First, we need to get your license key & configs into K8S. For brevity, we will just store this secret inside a 
+configmap, however they should probably be stored as secrets.
 
-```
-$ cd ~/tyk-kubernetes/tyk
-```
-
-Initialize the Tyk namespace:
+Replace `DASHBOARD_LICENSE` in `dashboard/dashboard.yaml` with your license key, then initialise and deploy the dashboard.
 
 ```
-$ kubectl create -f namespaces
+kubectl apply -f dashboard/dashboard.yaml
 ```
 
-## Dashboard setup
-
-Create a volume for the dashboard:
+Check the logs of one of the dashboard pods to ensure all is running smoothly:
 
 ```
-$ gcloud compute disks create --size=10GB tyk-dashboard
-```
-
-Set your license key in `tyk_analytics.conf`:
-
-```json
-    "mongo_url": "mongodb://mongodb.mongo.svc.cluster.local:27017/tyk_analytics",
-    "license_key": "LICENSEKEY",
-```
-
-Then create a config map for this file:
-
-```
-$ kubectl create configmap tyk-dashboard-conf --from-file=tyk_analytics.conf --namespace=tyk
-```
-
-Initialize the deployment and service:
-
-```
-$ kubectl create -f deployments/tyk-dashboard.yaml
-$ kubectl create -f services/tyk-dashboard.yaml
-```
-
-Check if the dashboard has been exposed:
-
-```
-$ kubectl get service tyk-dashboard --namespace=tyk
-```
-
-The output will look like this:
-
-```
-NAME            CLUSTER-IP       EXTERNAL-IP       PORT(S)          AGE
-tyk-dashboard   10.127.248.206   x.x.x.x           3000:30930/TCP   45s
-```
-
-`EXTERNAL-IP` represents a public IP address allocated for the dashboard service, you may try accessing the dashboard using this IP, the final URL will look like: 
-
-```
-http://x.x.x.x:3000/
-```
-
-At this point we should bootstrap the dashboard, we need to locate the pod that's running the dashboard:
-
-```
-$ kubectl get pod --namespace=tyk
+$ kubectl get pods -l app=tyk-dashboard
 NAME                             READY     STATUS    RESTARTS   AGE
-tyk-dashboard-1616536863-oeqa2   1/1       Running   0          2m
+tyk-dashboard-5f6ff6859c-prlzx   1/1       Running   0          12m
+tyk-dashboard-5f6ff6859c-xwf7b   1/1       Running   0          12m
+
+$ kubectl logs tyk-dashboard-5f6ff6859c-prlzx
+time="Jul 10 20:24:32" level=info msg="Using /etc/tyk-dashboard/tyk_analytics.conf for configuration" 
+time="Jul 10 20:24:32" level=info msg="connecting to MongoDB: [mongodb.default.svc.cluster.local:27017]" 
+time="Jul 10 20:24:32" level=info msg="mongo connection established" 
+time="Jul 10 20:24:32" level=info msg="Creating new Redis connection pool" 
+time="Jul 10 20:24:32" level=info msg="Creating new Redis connection pool" 
+time="Jul 10 20:24:32" level=info msg="Creating new Redis connection pool" 
+time="Jul 10 20:24:32" level=info msg="Creating new Redis connection pool" 
+time="Jul 10 20:24:32" level=info msg="Adding available nodes..." 
+time="Jul 10 20:24:32" level=info msg="Tyk Analytics Dashboard v1.6.2" 
+time="Jul 10 20:24:32" level=info msg="Copyright Martin Buhr 2016" 
+time="Jul 10 20:24:32" level=info msg="https://www.tyk.io" 
+time="Jul 10 20:24:32" level=info msg="Listening on port: 3000" 
+time="Jul 10 20:24:32" level=info msg="Registering nodes..." 
+time="Jul 10 20:24:32" level=info msg="Adding available nodes..." 
+time="Jul 10 20:24:32" level=info msg="Creating new Redis connection pool" 
+time="Jul 10 20:24:32" level=info msg="Socket server started" 
+time="Jul 10 20:24:32" level=info msg="--> Standard listener (http) for UI notifications" addr=":5000" 
+time="Jul 10 20:24:32" level=info msg="--> Standard listener (http) for dashboard and API" 
+time="Jul 10 20:24:32" level=info msg="Starting zeroconf heartbeat" 
+time="Jul 10 20:24:32" level=info msg="Starting notification handler for gateway cluster" 
+time="Jul 10 20:24:32" level=info msg="Loading routes..." 
 ```
 
-Then we run the bootstrap script, using the pod name:
+We can bootstrap the dashboard by targeting one of them by it's pod name:
 
 ```
-$ kubectl exec --namespace=tyk tyk-dashboard-1616536863-oeqa2 /opt/tyk-dashboard/install/bootstrap.sh x.x.x.x
+kubectl exec tyk-dashboard-5f6ff6859c-prlzx /opt/tyk-dashboard/install/bootstrap.sh 127.0.0.1
 ```
 
-Remember to use the `EXTERNAL-IP` that shows up in the previous step, instead of `x.x.x.x`.
+// TODO Find way to bootstrap dash with `$(minikube ip)` rather than `127.0.0.1`.
 
 The bootstrap script will report the initial credentials:
 
 ```
 DONE
 ====
-Login at http://x.x.x.x:3000/
+Login at http://127.0.0.1:3000/
 User: test@test.com
 Pass: test123
-```
+``` 
 
-You should be able to access the dashboard now.
+You should be able to access the dashboard now. But because you are running inside Kubernetes, you will not be able to
+access via the advertised login `http://127.0.0.1:3000/`. Instead, the dashboard will be available via address provided
+by minikube:
+
+```
+$ minikube service list
+|-------------|----------------------|-----------------------------|
+|  NAMESPACE  |         NAME         |             URL             |
+|-------------|----------------------|-----------------------------|
+| default     | kubernetes           | No node port                |
+| default     | mongodb              | No node port                |
+| default     | redis                | No node port                |
+| default     | tyk-dashboard        | http://192.168.99.100:30001 |
+| kube-system | kube-dns             | No node port                |
+| kube-system | kubernetes-dashboard | http://192.168.99.100:30000 |
+|-------------|----------------------|-----------------------------|
+```
 
 ## Gateway setup
 

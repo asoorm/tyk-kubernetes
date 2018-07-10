@@ -1,0 +1,134 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: tyk-dashboard
+spec:
+  ports:
+  - port: 3000
+    targetPort: 3000
+    nodePort: 30001
+    protocol: TCP
+  selector:
+    app: tyk-dashboard
+  type: NodePort
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tyk-dashboard-conf
+data:
+  tyk_analytics.conf: |-
+    {
+      "license_key": "DASHBOARD_LICENSE",
+      "listen_port": 3000,
+      "tyk_api_config": {
+        "Host": "http://tyk-gateway.default.svc.cluster.local",
+        "Port": "80",
+        "Secret": "352d20ee67be67f6340b4c0605b044b7"
+      },
+      "mongo_url": "mongodb://mongodb.default.svc.cluster.local:27017/tyk_analytics",
+      "page_size": 10,
+      "admin_secret": "12345",
+      "shared_node_secret": "352d20ee67be67f6340b4c0605b044b7",
+      "enable_cluster": true,
+      "force_api_defaults": false,
+      "notify_on_change": true,
+      "redis_database": 0,
+      "redis_host": "redis.default.svc.cluster.local",
+      "redis_port": 6379,
+      "hash_keys": true,
+      "email_backend": {
+        "enable_email_notifications": false,
+        "code": "",
+        "settings": null,
+        "default_from_email": "",
+        "default_from_name": ""
+      },
+      "hide_listen_path": false,
+      "sentry_code": "",
+      "sentry_js_code": "",
+      "use_sentry": false,
+      "enable_master_keys": false,
+      "enable_duplicate_slugs": true,
+      "show_org_id": true,
+      "host_config": {
+        "enable_host_names": false,
+        "disable_org_slug_prefix": true,
+        "hostname": "",
+        "override_hostname": "",
+        "portal_domains": {},
+        "portal_root_path": "/portal"
+      },
+      "http_server_options": {
+        "use_ssl": false,
+        "certificates": [
+          {
+            "domain_name": "",
+            "cert_file": "",
+            "key_file": ""
+          }
+        ],
+        "min_version": 0
+      },
+      "ui": {
+        "login_page": {},
+        "nav": {},
+        "uptime": {},
+        "portal_section": null,
+        "designer": {},
+        "dont_show_admin_sockets": false,
+        "dont_allow_license_management": false,
+        "dont_allow_license_management_view": false
+      },
+      "home_dir": "/opt/tyk-dashboard",
+      "identity_broker": {
+        "enabled": false,
+        "host": {
+          "connection_string": "",
+          "secret": ""
+        }
+      },
+      "tagging_options": {
+        "tag_all_apis_by_org": false
+      }
+    }
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: tyk-dashboard
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: tyk-dashboard
+    spec:
+      containers:
+      - image: tykio/tyk-dashboard:latest
+        imagePullPolicy: Always
+        name: tyk-dashboard
+        command: ["/opt/tyk-dashboard/tyk-analytics", "--conf=/etc/tyk-dashboard/tyk_analytics.conf"]
+        workingDir: /opt/tyk-dashboard
+        ports:
+        - containerPort: 3000
+#        env:
+#        - name: TYK_DB_LICENSEKEY
+#          valueFrom:
+#            secretKeyRef:
+#              name: tyk-secrets
+#              key: dashboard-license
+        volumeMounts:
+          - name: tyk-dashboard-conf
+            mountPath: /etc/tyk-dashboard
+      volumes:
+        - name: tyk-dashboard-conf
+          configMap:
+            name: tyk-dashboard-conf
+            items:
+              - key: tyk_analytics.conf
+                path: tyk_analytics.conf
