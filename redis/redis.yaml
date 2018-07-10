@@ -1,0 +1,39 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: redis
+spec:
+  selector:
+    app: redis
+  ports:
+    - name: redis
+      protocol: TCP
+      port: 6379
+      targetPort: 6379
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - image: redis:4.0-alpine
+        imagePullPolicy: Always
+        name: redis
+        command: ["redis-server", "--appendonly", "yes"]
+        ports:
+        - containerPort: 6379
+        volumeMounts:
+          - name: redis-data
+            mountPath: "/var/lib/redis"
+      volumes:
+        - name: redis-data
+          emptyDir: {}

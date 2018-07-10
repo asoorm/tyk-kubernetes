@@ -1,102 +1,34 @@
 # Tyk + Kubernetes integration
 
-This guide will walk you through a Kubernetes-based Tyk setup. It also covers the required steps to configure and use a Redis cluster and a MongoDB instance.
+This guide will walk you through a Kubernetes-based Tyk setup on your local machine. 
+It also provides direction on deployment of a simple redis-server & mongo-db instance.
 
 # Requirements
 
-- A fresh Google Cloud Platform project and credentials, see the ["Creating a project via the Cloud Platform Console" section](https://cloud.google.com/resource-manager/docs/creating-project).
-- The Google Cloud Platform CLI tool, download [here](https://cloud.google.com/sdk/).
+We shall assume that you already have kubectl &ampl minikube installed / configured.
 
 # Getting Started
 
 Clone this repository in your workspace:
 
 ```
-$ cd ~
-$ git clone https://github.com/TykTechnologies/tyk-kubernetes.git
-$ cd tyk-kubernetes
+git clone git@github.com:TykTechnologies/tyk-kubernetes.git && cd tyk-kubernetes
 ```
 
-# Redis setup
+## Prerequisites
 
-Enter the `redis` directory:
+Tyk-Pro requires both Redis & MongoDB - we shall run through a quick installation to get you started, however please
+note that this is a quickstart - and as such, not suitable for production use.
 
-```
-$ cd redis
-```
+### Redis installation
 
-Initialize the `redis` namespace:
-
-```
-$ kubectl create -f namespaces
-```
-
-We will create the disks for our Redis instances:
+For the purposes of this installation guide, we shall deploy a single-node redis-server.
 
 ```
-$ gcloud compute disks create --size=10GB \
-    'redis-1' 'redis-2' 'redis-3' \
-    'redis-4' 'redis-5' 'redis-6'
+kubectl apply -f ./redis/redis.yaml
 ```
 
-Then we import the Redis configuration:
-
-```
-$ kubectl create configmap redis-conf --from-file=redis.conf --namespace=redis
-```
-
-And initialize the [replica sets](http://kubernetes.io/docs/user-guide/replicasets/) and its pods:
-
-```
-$ kubectl create -f replicasets
-```
-
-To create the [services](http://kubernetes.io/docs/user-guide/services/) run:
-
-```
-$ kubectl create -f services
-```
-
-At this point we should have 6 Redis instances, running in each pod. Kubernetes DNS will provide A records for our services, as described [here](http://kubernetes.io/docs/admin/dns/).
-
-## Configuring the cluster
-
-To perform the cluster configuration, we will use a basic Ubuntu pod:
-
-```
-$ kubectl run -i --tty ubuntu --image=ubuntu \
-    --restart=Never /bin/bash
-```
-
-This command may take some time until you get the command prompt.
-
-To install the tools required to configure the cluster, run:
-
-```
-$ apt-get update
-$ apt-get install -y python2.7 python-pip redis-tools dnsutils
-$ pip install redis-trib
-```
-
-To configure three masters we use the following command, from the [redis-trib.py](https://github.com/HunanTV/redis-trib.py) tool:
-
-```
-$ redis-trib.py create `dig +short redis-1.redis.svc.cluster.local`:6379 \
-    `dig +short redis-2.redis.svc.cluster.local`:6379 \
-    `dig +short redis-3.redis.svc.cluster.local`:6379
-```
-
-Each argument will become the resolved service IP plus the port.
-
-To set a slave for each master we use:
-
-```
-$ redis-trib.py replicate --master-addr `dig +short redis-1.redis.svc.cluster.local`:6379 --slave-addr `dig +short redis-4.redis.svc.cluster.local`:6379
-$ redis-trib.py replicate --master-addr `dig +short redis-2.redis.svc.cluster.local`:6379 --slave-addr `dig +short redis-5.redis.svc.cluster.local`:6379
-$ redis-trib.py replicate --master-addr `dig +short redis-3.redis.svc.cluster.local`:6379 --slave-addr `dig +short redis-6.redis.svc.cluster.local`:6379
-```
-
-# MongoDB setup
+## MongoDB setup
 
 Enter the `mongo` directory:
 
