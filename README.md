@@ -166,24 +166,14 @@ $ minikube service list
 
 ## Gateway setup
 
-Create a volume for the gateway:
+The gateway service may simply be started as follows:
 
-```
-$ gcloud compute disks create --size=10GB tyk-gateway
-```
+`kubectl apply -f gateway/gateway.yaml`
 
-Create a config map for `tyk.conf`:
+Assuming you have a multi-node tyk-pro license you will be able to scale your gateways up and down as follows and they
+will all be managable via the same dashboard service:
 
-```
-$ kubectl create configmap tyk-gateway-conf --from-file=tyk.conf --namespace=tyk
-```
-
-Initialize the deployment and service:
-
-```
-$ kubectl create -f deployments/tyk-gateway.yaml
-$ kubectl create -f services/tyk-gateway.yaml
-```
+`kubectl scale --replicas=10 deployments/tyk-gateway`
 
 ## Pump setup
 
