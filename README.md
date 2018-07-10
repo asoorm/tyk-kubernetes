@@ -7,6 +7,8 @@ It also provides direction on deployment of a simple redis-server & mongo-db ins
 
 We shall assume that you already have kubectl &ampl minikube installed / configured.
 
+Please note that this is simply a guide to getting Tyk installed quickly on Kubernetes. It is not production ready.
+
 # Getting Started
 
 Clone this repository in your workspace:
@@ -15,10 +17,10 @@ Clone this repository in your workspace:
 git clone git@github.com:TykTechnologies/tyk-kubernetes.git && cd tyk-kubernetes
 ```
 
-## Prerequisites
+## Databases
 
-Tyk-Pro requires both Redis & MongoDB - we shall run through a quick installation to get you started, however please
-note that this is a quickstart - and as such, not suitable for production use.
+Tyk-Pro requires both Redis & MongoDB - we shall run through a quick installation to get you started, with single
+ instances of each.
 
 ### Redis installation
 
@@ -28,31 +30,59 @@ For the purposes of this installation guide, we shall deploy a single-node redis
 kubectl apply -f ./redis/redis.yaml
 ```
 
-## MongoDB setup
-
-Enter the `mongo` directory:
+Check that the Redis is up and running:
 
 ```
-$ cd ~/tyk-kubernetes/mongo
+kubectl get pods -l app=redis
+NAME                     READY     STATUS    RESTARTS   AGE
+redis-5f8bc7f679-qk7cw   1/1       Running   0          38m
 ```
 
-Initialize the Mongo namespace:
+Check the logs for the redis pod
 
 ```
-$ kubectl create -f namespaces
+kubectl logs redis-5f8bc7f679-qk7cw
+1:C 10 Jul 15:32:07.875 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+1:C 10 Jul 15:32:07.875 # Redis version=4.0.10, bits=64, commit=00000000, modified=0, pid=1, just started
+1:C 10 Jul 15:32:07.875 # Configuration loaded
+1:M 10 Jul 15:32:07.877 * Running mode=standalone, port=6379.
+1:M 10 Jul 15:32:07.877 # WARNING: The TCP backlog setting of 511 cannot be enforced because /proc/sys/net/core/somaxconn is set to the lower value of 128.
+1:M 10 Jul 15:32:07.877 # Server initialized
+1:M 10 Jul 15:32:07.877 * Ready to accept connections
 ```
 
-Create a volume for MongoDB:
+## MongoDB installation
+
+For the purposes of this installation, we will deploy a single mongodb server.
 
 ```
-$ gcloud compute disks create --size=10GB mongo-volume
+kubectl apply -f ./mongo/mongo.yaml
 ```
 
-Initialize the deployment and service:
+Check that mongo pod is up and running
 
 ```
-$ kubectl create -f deployments
-$ kubectl create -f services
+kubectl get pods -l app=mongodb
+NAME                       READY     STATUS    RESTARTS   AGE
+mongodb-68d66b5d69-r6cxq   1/1       Running   0          14m
+```
+
+Check logs for mongodb
+
+```
+kubectl logs mongodb-68d66b5d69-r6cxq
+2018-07-10T16:01:46.464+0000 I CONTROL  [initandlisten] MongoDB starting : pid=1 port=27017 dbpath=/data/db 64-bit host=mongodb-68d66b5d69-r6cxq
+2018-07-10T16:01:46.465+0000 I CONTROL  [initandlisten] db version v3.4.15
+2018-07-10T16:01:46.465+0000 I CONTROL  [initandlisten] git version: 52e5b5fbaa3a2a5b1a217f5e647b5061817475f9
+2018-07-10T16:01:46.465+0000 I CONTROL  [initandlisten] OpenSSL version: OpenSSL 1.0.1t  3 May 2016
+2018-07-10T16:01:46.465+0000 I CONTROL  [initandlisten] allocator: tcmalloc
+2018-07-10T16:01:46.465+0000 I CONTROL  [initandlisten] modules: none
+2018-07-10T16:01:46.465+0000 I CONTROL  [initandlisten] build environment:
+2018-07-10T16:01:46.465+0000 I CONTROL  [initandlisten]     distmod: debian81
+2018-07-10T16:01:46.465+0000 I CONTROL  [initandlisten]     distarch: x86_64
+2018-07-10T16:01:46.465+0000 I CONTROL  [initandlisten]     target_arch: x86_64
+2018-07-10T16:01:46.465+0000 I CONTROL  [initandlisten] options: { storage: { mmapv1: { smallFiles: true } } }
+...
 ```
 
 # Tyk setup

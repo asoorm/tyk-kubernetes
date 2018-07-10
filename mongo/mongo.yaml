@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+spec:
+  ports:
+  - port: 27017
+    targetPort: 27017
+    protocol: TCP
+  selector:
+    app: mongodb
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: mongodb
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+      - image: mongo:3.4-jessie
+        imagePullPolicy: Always
+        name: mongo
+        command: ["mongod", "--smallfiles"]
+        ports:
+        - containerPort: 27017
+        volumeMounts:
+          - name: mongo-volume
+            mountPath: /data/db
+      volumes:
+        - name: mongo-volume
+          emptyDir: {}
